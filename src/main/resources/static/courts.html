@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Court Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        input, button {
+            margin-top: 5px;
+            padding: 8px;
+            width: 100%;
+            max-width: 300px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        button {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<h1>Court Management</h1>
+
+<!-- Add Court Form -->
+<h2>Add a New Court</h2>
+<form id="addCourtForm">
+    <label for="courtId">Court ID:</label>
+    <input type="number" id="courtId" name="courtId" required>
+
+    <button type="submit">Add Court</button>
+</form>
+
+<!-- Update Court Availability Form -->
+<h2>Update Court Availability</h2>
+<form id="updateAvailabilityForm">
+    <label for="updateCourtId">Court ID:</label>
+    <input type="number" id="updateCourtId" name="updateCourtId" required>
+
+    <button type="submit">Update Availability</button>
+</form>
+
+<!-- Delete Court Form -->
+<h2>Delete a Court</h2>
+<form id="deleteCourtForm">
+    <label for="deleteCourtId">Court ID:</label>
+    <input type="number" id="deleteCourtId" name="deleteCourtId" required>
+
+    <button type="submit">Delete Court</button>
+</form>
+
+<!-- Display Courts Table -->
+<h2>Courts List</h2>
+<table id="courtsTable">
+    <thead>
+    <tr>
+        <th>ID</th>
+    </tr>
+    </thead>
+    <tbody>
+    <!-- Courts will be dynamically added here -->
+    </tbody>
+</table>
+
+<!-- JavaScript to Handle API Calls -->
+<script>
+    const API_BASE_URL = 'http://localhost:8080/courts';
+
+    // Fetch and display all courts
+    async function loadCourts() {
+        const response = await fetch(API_BASE_URL);
+        const courts = await response.json();
+        const tableBody = document.querySelector('#courtsTable tbody');
+        tableBody.innerHTML = courts.map(court => `
+                <tr>
+                    <td>${court.id}</td>
+                </tr>
+            `).join('');
+    }
+
+    // Add a new court
+    document.getElementById('addCourtForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const courtId = document.getElementById('courtId').value;
+
+        const response = await fetch(API_BASE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: parseInt(courtId)}),
+        });
+
+        if (response.ok) {
+            alert('Court added successfully!');
+            loadCourts();
+        } else {
+            alert('Error adding court.');
+        }
+    });
+
+    // Update court availability
+    document.getElementById('updateAvailabilityForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const courtId = document.getElementById('updateCourtId').value;
+
+        const response = await fetch(`${API_BASE_URL}/${courtId}`, {
+            method: 'PUT',
+        });
+
+        if (response.ok) {
+            alert('Court availability updated successfully!');
+            loadCourts();
+        } else {
+            alert('Error updating court availability.');
+        }
+    });
+
+    // Delete a court
+    document.getElementById('deleteCourtForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const courtId = document.getElementById('deleteCourtId').value;
+
+        const response = await fetch(`${API_BASE_URL}/${courtId}`, {
+            method: 'DELETE',
+        });
+
+        if (response.ok) {
+            alert('Court deleted successfully!');
+            loadCourts();
+        } else {
+            alert('Error deleting court.');
+        }
+    });
+
+    // Load courts on page load
+    loadCourts();
+</script>
+</body>
+</html>
