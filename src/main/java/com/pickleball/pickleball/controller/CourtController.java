@@ -1,12 +1,12 @@
 package com.pickleball.pickleball.controller;
 
 import com.pickleball.pickleball.model.Court;
+import com.pickleball.pickleball.model.Pair;
 import com.pickleball.pickleball.service.CourtService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collection;
+import java.util.*;
 
 @RestController
 @RequestMapping("/courts")
@@ -20,31 +20,28 @@ public class CourtController {
         return courtService.getAllCourts();
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Court> getCourtById(@PathVariable int id) {
-        Court court = courtService.getCourtById(id);
-        if (court != null) {
-            return ResponseEntity.ok(court);
-        }
-        return ResponseEntity.notFound().build();
+    @PostMapping("/add")
+    public void addCourt(@RequestBody Map<String, Object> payload) {
+        Pair team1 = new Pair((Map<String, String>) payload.get("team1"));
+        Pair team2 = new Pair((Map<String, String>) payload.get("team2"));
+        Queue<String> reserves = new LinkedList<>((List<String>) payload.get("reserves"));
+        courtService.addCourt(team1, team2, reserves);
     }
 
-    @PostMapping
-    public ResponseEntity<Court> addCourt(@RequestBody Court court) {
-        Court addedCourt = courtService.addCourt(court);
-        if (addedCourt != null) {
-            return ResponseEntity.ok(addedCourt);
-        }
-        return ResponseEntity.badRequest().build();
+    @PostMapping("/delete")
+    public void deleteCourt() {
+        courtService.deleteCourt();
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Court> deleteCourt(@PathVariable int id) {
-        var court = courtService.deleteCourt(id);
-        if (court != null) {
-            return ResponseEntity.ok(court);
-        }
-        return ResponseEntity.notFound().build();
+    @PutMapping("/{id}/winner")
+    public void updateWinner(@PathVariable int id, @RequestBody Map<String, String> request) {
+        String winner = request.get("winner");
+        //courtService.updateWinner(id, winner);
+    }
+
+    @PostMapping("/calculate")
+    public void calculate() {
+        courtService.nextMatches();
     }
 
 }

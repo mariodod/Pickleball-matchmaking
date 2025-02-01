@@ -1,32 +1,28 @@
 package com.pickleball.pickleball.repository;
 
 import com.pickleball.pickleball.model.Court;
-import lombok.RequiredArgsConstructor;
+import com.pickleball.pickleball.model.Pair;
 import org.springframework.stereotype.Repository;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Queue;
 
 @Repository
 public class CourtRepository {
 
-    private final Map<Integer, Court> courts = new HashMap<>();
+    private final List<Court> courts = new ArrayList<>();
 
-    public Collection<Court> getAll() {
-        return courts.values();
+    public List<Court> getAll() {
+        return courts;
     }
 
-    public Court getOne(int id) {
-        return courts.get(id);
+    public void add(Pair team1, Pair team2, Queue<String> reserves) {
+        courts.addLast(new Court(courts.size(), team1, team2, reserves));
     }
 
-    public Court add(Court court) {
-        return courts.putIfAbsent(court.getId(), court);
-    }
-
-    public Court delete(int id){
-        return courts.remove(id);
+    public void delete(){
+        courts.removeLast();
     }
 
 }

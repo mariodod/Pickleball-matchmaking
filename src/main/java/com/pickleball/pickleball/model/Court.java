@@ -1,21 +1,38 @@
 package com.pickleball.pickleball.model;
 
-import ch.qos.logback.core.joran.sanity.Pair;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
-import java.util.List;
+import java.util.Queue;
 
 @Getter
 @Setter
-@RequiredArgsConstructor
 public class Court {
 
     private final int id;
-    private Pair<Player, Player> team1;
-    private Pair<Player, Player> team2;
-    private List<Player> reserves;
+    private Pair team1;
+    private Pair team2;
+    private Queue<String> reserves;
     private boolean team1Win;
     private boolean team2Win;
+
+    public Court(int id, Pair team1, Pair team2, Queue<String> reserves) {
+        this.id = id;
+        this.team1 = team1;
+        this.team2 = team2;
+        this.reserves = reserves;
+    }
+
+    public Pair getWinners() {
+        return team1Win ? team1 : team2;
+    }
+
+    public Pair getLosers() {
+        return !team1Win ? team1 : team2;
+    }
+
+    public void resetResult() {
+        team1Win = false;
+        team2Win = false;
+    }
 }

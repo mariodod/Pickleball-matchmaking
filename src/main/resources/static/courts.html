@@ -46,31 +46,46 @@
 <body>
 <h1>Court Management</h1>
 
-<!-- Add Court Form -->
 <h2>Add a New Court</h2>
+<!-- Add Court Form -->
 <form id="addCourtForm">
-    <label for="courtId">Court ID:</label>
-    <input type="number" id="courtId" name="courtId" required>
+    <!-- Team 1 -->
+    <h2>Team 1</h2>
+    <label for="team1Player1">Player 1:</label>
+    <input type="text" id="team1Player1" name="team1Player1" required>
 
+    <label for="team1Player2">Player 2:</label>
+    <input type="text" id="team1Player2" name="team1Player2" required>
+
+    <!-- Team 2 -->
+    <h2>Team 2</h2>
+    <label for="team2Player1">Player 1:</label>
+    <input type="text" id="team2Player1" name="team2Player1" required>
+
+    <label for="team2Player2">Player 2:</label>
+    <input type="text" id="team2Player2" name="team2Player2" required>
+
+    <!-- Reserves -->
+    <h2>Reserves</h2>
+    <div class="reserves" id="reservesContainer">
+        <input type="text" class="reservePlayer" placeholder="Reserve Player">
+    </div>
+    <button type="button" id="addReserve">Add Reserve Player</button>
+
+    <!-- Submit Button -->
     <button type="submit">Add Court</button>
-</form>
-
-<!-- Update Court Availability Form -->
-<h2>Update Court Availability</h2>
-<form id="updateAvailabilityForm">
-    <label for="updateCourtId">Court ID:</label>
-    <input type="number" id="updateCourtId" name="updateCourtId" required>
-
-    <button type="submit">Update Availability</button>
 </form>
 
 <!-- Delete Court Form -->
 <h2>Delete a Court</h2>
 <form id="deleteCourtForm">
-    <label for="deleteCourtId">Court ID:</label>
-    <input type="number" id="deleteCourtId" name="deleteCourtId" required>
-
     <button type="submit">Delete Court</button>
+</form>
+
+<!-- Update Court Availability Form -->
+<h2>Update Court Availability</h2>
+<form id="updateAvailabilityForm">
+    <button type="submit">Update Availability</button>
 </form>
 
 <!-- Display Courts Table -->
@@ -79,6 +94,10 @@
     <thead>
     <tr>
         <th>ID</th>
+        <th>Team 1</th>
+        <th>Team 2</th>
+        <th>Reserves</th>
+        <th>Winner</th>
     </tr>
     </thead>
     <tbody>
@@ -97,63 +116,104 @@
         const tableBody = document.querySelector('#courtsTable tbody');
         tableBody.innerHTML = courts.map(court => `
                 <tr>
-                    <td>${court.id}</td>
+                    <td>${court.id + 1}</td>
+                    <td>${court.team1.player1}, ${court.team1.player2}</td>
+                    <td>${court.team2.player1}, ${court.team2.player2}</td>
+                    <td>${court.reserves}</td>
+                    <td>
+                        <label>
+                            Team 1<input type="checkbox" name="team1Win" value="false" ${court.team1Win ? 'checked' : ''}>
+                        <label>
+                            Team 2<input type="checkbox" name="team2Win" value="false" ${court.team2Win ? 'checked' : ''}>
+                        </label>
+                    </td>
                 </tr>
             `).join('');
+
+        // Add event listeners to checkboxes
+        document.querySelectorAll('.winner-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', handleWinnerSelection);
+        });
     }
+
+    // Add Reserve Player Input Field
+    document.getElementById('addReserve').addEventListener('click', () => {
+        const reservesContainer = document.getElementById('reservesContainer');
+        const newInput = document.createElement('input');
+        newInput.type = 'text';
+        newInput.className = 'reservePlayer';
+        newInput.placeholder = 'Reserve Player';
+        reservesContainer.appendChild(newInput);
+    });
 
     // Add a new court
     document.getElementById('addCourtForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const courtId = document.getElementById('courtId').value;
+        // Get Team 1 Players
+        const team1 = {
+            player1: document.getElementById('team1Player1').value,
+            player2: document.getElementById('team1Player2').value,
+        };
 
-        const response = await fetch(API_BASE_URL, {
+        // Get Team 2 Players
+        const team2 = {
+            player1: document.getElementById('team2Player1').value,
+            player2: document.getElementById('team2Player2').value,
+        };
+
+        // Get Reserve Players
+        const reserveInputs = document.querySelectorAll('.reservePlayer');
+        const reserves = Array.from(reserveInputs)
+            .map(input => input.value)
+            .filter(value => value.trim() !== ''); // Filter out empty values
+
+        // Prepare Payload
+        const payload = {
+            team1,
+            team2,
+            reserves,
+        };
+
+        const response = await fetch(API_BASE_URL+'/add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: parseInt(courtId)}),
+            body: JSON.stringify(payload),
         });
 
-        if (response.ok) {
-            alert('Court added successfully!');
-            loadCourts();
-        } else {
-            alert('Error adding court.');
-        }
-    });
-
-    // Update court availability
-    document.getElementById('updateAvailabilityForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const courtId = document.getElementById('updateCourtId').value;
-
-        const response = await fetch(`${API_BASE_URL}/${courtId}`, {
-            method: 'PUT',
-        });
-
-        if (response.ok) {
-            alert('Court availability updated successfully!');
-            loadCourts();
-        } else {
-            alert('Error updating court availability.');
-        }
+        loadCourts();
     });
 
     // Delete a court
     document.getElementById('deleteCourtForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const courtId = document.getElementById('deleteCourtId').value;
 
-        const response = await fetch(`${API_BASE_URL}/${courtId}`, {
-            method: 'DELETE',
+        const response = await fetch(API_BASE_URL+'/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
         });
 
-        if (response.ok) {
-            alert('Court deleted successfully!');
-            loadCourts();
-        } else {
-            alert('Error deleting court.');
-        }
+        loadCourts();
     });
+
+    // Handle winner selection
+    async function handleWinnerSelection(event) {
+        const checkbox = event.target;
+        const courtId = checkbox.closest('tr').dataset.courtId;
+        const winner = checkbox.dataset.team;
+
+        // Uncheck the other checkbox
+        const checkboxes = checkbox.closest('td').querySelectorAll('.winner-checkbox');
+        checkboxes.forEach(cb => {
+            if (cb !== checkbox) cb.checked = false;
+        });
+
+        // Send the winner to the backend
+        const response = await fetch(`${API_BASE_URL}/${courtId}/winner`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ winner }),
+        });
+    }
 
     // Load courts on page load
     loadCourts();
