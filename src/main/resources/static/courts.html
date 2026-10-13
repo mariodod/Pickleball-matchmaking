@@ -41,15 +41,18 @@
         button {
             cursor: pointer;
         }
+        .error {
+            color: #b00020;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
 <h1>Court Management</h1>
+<p id="errorMessage" class="error" hidden></p>
 
 <h2>Add a New Court</h2>
-<!-- Add Court Form -->
 <form id="addCourtForm">
-    <!-- Team 1 -->
     <h2>Team 1</h2>
     <label for="team1Player1">Player 1:</label>
     <input type="text" id="team1Player1" name="team1Player1" required>
@@ -57,7 +60,6 @@
     <label for="team1Player2">Player 2:</label>
     <input type="text" id="team1Player2" name="team1Player2" required>
 
-    <!-- Team 2 -->
     <h2>Team 2</h2>
     <label for="team2Player1">Player 1:</label>
     <input type="text" id="team2Player1" name="team2Player1" required>
@@ -65,30 +67,25 @@
     <label for="team2Player2">Player 2:</label>
     <input type="text" id="team2Player2" name="team2Player2" required>
 
-    <!-- Reserves -->
     <h2>Reserves</h2>
     <div class="reserves" id="reservesContainer">
         <input type="text" class="reservePlayer" placeholder="Reserve Player">
     </div>
     <button type="button" id="addReserve">Add Reserve Player</button>
 
-    <!-- Submit Button -->
     <button type="submit">Add Court</button>
 </form>
 
-<!-- Delete Court Form -->
 <h2>Delete a Court</h2>
 <form id="deleteCourtForm">
     <button type="submit">Delete Court</button>
 </form>
 
-<!-- Update Court Availability Form -->
-<h2>Update Court Availability</h2>
-<form id="updateAvailabilityForm">
-    <button type="submit">Update Availability</button>
+<h2>Next Matches</h2>
+<form id="nextMatchesForm">
+    <button type="submit">Rotate to next matches</button>
 </form>
 
-<!-- Display Courts Table -->
 <h2>Courts List</h2>
 <table id="courtsTable">
     <thead>
@@ -101,42 +98,75 @@
     </tr>
     </thead>
     <tbody>
-    <!-- Courts will be dynamically added here -->
     </tbody>
 </table>
 
-<!-- JavaScript to Handle API Calls -->
 <script>
-    const API_BASE_URL = 'http://localhost:8080/courts';
+    const API_BASE_URL = '/courts';
 
-    // Fetch and display all courts
+    function showError(message) {
+        const el = document.getElementById('errorMessage');
+        if (!message) {
+            el.hidden = true;
+            el.textContent = '';
+            return;
+        }
+        el.hidden = false;
+        el.textContent = message;
+    }
+
+    async function readError(response, fallback) {
+        try {
+            const body = await response.json();
+            return body.message || body.detail || fallback;
+        } catch {
+            return fallback;
+        }
+    }
+
+    function formatReserves(reserves) {
+        if (!reserves) {
+            return '';
+        }
+        if (Array.isArray(reserves)) {
+            return reserves.join(', ');
+        }
+        return String(reserves);
+    }
+
     async function loadCourts() {
         const response = await fetch(API_BASE_URL);
+        if (!response.ok) {
+            showError(await readError(response, 'Could not load courts'));
+            return;
+        }
         const courts = await response.json();
         const tableBody = document.querySelector('#courtsTable tbody');
         tableBody.innerHTML = courts.map(court => `
-                <tr>
+                <tr data-court-id="${court.id}">
                     <td>${court.id + 1}</td>
                     <td>${court.team1.player1}, ${court.team1.player2}</td>
                     <td>${court.team2.player1}, ${court.team2.player2}</td>
-                    <td>${court.reserves}</td>
+                    <td>${formatReserves(court.reserves)}</td>
                     <td>
                         <label>
-                            Team 1<input type="checkbox" name="team1Win" value="false" ${court.team1Win ? 'checked' : ''}>
+                            Team 1
+                            <input type="checkbox" class="winner-checkbox" data-team="team1" ${court.team1Win ? 'checked' : ''}>
+                        </label>
                         <label>
-                            Team 2<input type="checkbox" name="team2Win" value="false" ${court.team2Win ? 'checked' : ''}>
+                            Team 2
+                            <input type="checkbox" class="winner-checkbox" data-team="team2" ${court.team2Win ? 'checked' : ''}>
                         </label>
                     </td>
                 </tr>
             `).join('');
 
-        // Add event listeners to checkboxes
         document.querySelectorAll('.winner-checkbox').forEach(checkbox => {
             checkbox.addEventListener('change', handleWinnerSelection);
         });
+        showError('');
     }
 
-    // Add Reserve Player Input Field
     document.getElementById('addReserve').addEventListener('click', () => {
         const reservesContainer = document.getElementById('reservesContainer');
         const newInput = document.createElement('input');
@@ -146,76 +176,80 @@
         reservesContainer.appendChild(newInput);
     });
 
-    // Add a new court
     document.getElementById('addCourtForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        // Get Team 1 Players
         const team1 = {
             player1: document.getElementById('team1Player1').value,
             player2: document.getElementById('team1Player2').value,
         };
-
-        // Get Team 2 Players
         const team2 = {
             player1: document.getElementById('team2Player1').value,
             player2: document.getElementById('team2Player2').value,
         };
-
-        // Get Reserve Players
-        const reserveInputs = document.querySelectorAll('.reservePlayer');
-        const reserves = Array.from(reserveInputs)
+        const reserves = Array.from(document.querySelectorAll('.reservePlayer'))
             .map(input => input.value)
-            .filter(value => value.trim() !== ''); // Filter out empty values
+            .filter(value => value.trim() !== '');
 
-        // Prepare Payload
-        const payload = {
-            team1,
-            team2,
-            reserves,
-        };
-
-        const response = await fetch(API_BASE_URL+'/add', {
+        const response = await fetch(API_BASE_URL + '/add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            body: JSON.stringify({ team1, team2, reserves }),
         });
-
-        loadCourts();
+        if (!response.ok) {
+            showError(await readError(response, 'Could not add court'));
+            return;
+        }
+        e.target.reset();
+        document.getElementById('reservesContainer').innerHTML =
+            '<input type="text" class="reservePlayer" placeholder="Reserve Player">';
+        await loadCourts();
     });
 
-    // Delete a court
     document.getElementById('deleteCourtForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-
-        const response = await fetch(API_BASE_URL+'/delete', {
+        const response = await fetch(API_BASE_URL + '/delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
-
-        loadCourts();
+        if (!response.ok) {
+            showError(await readError(response, 'Could not delete court'));
+            return;
+        }
+        await loadCourts();
     });
 
-    // Handle winner selection
+    document.getElementById('nextMatchesForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const response = await fetch(API_BASE_URL + '/calculate', { method: 'POST' });
+        if (!response.ok) {
+            showError(await readError(response, 'Could not rotate matches'));
+            return;
+        }
+        await loadCourts();
+    });
+
     async function handleWinnerSelection(event) {
         const checkbox = event.target;
         const courtId = checkbox.closest('tr').dataset.courtId;
-        const winner = checkbox.dataset.team;
+        const winner = checkbox.checked ? checkbox.dataset.team : '';
 
-        // Uncheck the other checkbox
-        const checkboxes = checkbox.closest('td').querySelectorAll('.winner-checkbox');
-        checkboxes.forEach(cb => {
-            if (cb !== checkbox) cb.checked = false;
+        checkbox.closest('td').querySelectorAll('.winner-checkbox').forEach(cb => {
+            if (cb !== checkbox) {
+                cb.checked = false;
+            }
         });
 
-        // Send the winner to the backend
         const response = await fetch(`${API_BASE_URL}/${courtId}/winner`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ winner }),
         });
+        if (!response.ok) {
+            showError(await readError(response, 'Could not save winner'));
+            await loadCourts();
+        }
     }
 
-    // Load courts on page load
     loadCourts();
 </script>
 </body>

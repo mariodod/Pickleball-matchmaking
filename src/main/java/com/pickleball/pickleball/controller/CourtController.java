@@ -4,9 +4,16 @@ import com.pickleball.pickleball.model.Court;
 import com.pickleball.pickleball.model.Pair;
 import com.pickleball.pickleball.service.CourtService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
 
 @RestController
 @RequestMapping("/courts")
@@ -22,9 +29,9 @@ public class CourtController {
 
     @PostMapping("/add")
     public void addCourt(@RequestBody Map<String, Object> payload) {
-        Pair team1 = new Pair((Map<String, String>) payload.get("team1"));
-        Pair team2 = new Pair((Map<String, String>) payload.get("team2"));
-        Queue<String> reserves = new LinkedList<>((List<String>) payload.get("reserves"));
+        Pair team1 = teamFrom(payload.get("team1"));
+        Pair team2 = teamFrom(payload.get("team2"));
+        Queue<String> reserves = reservesFrom(payload.get("reserves"));
         courtService.addCourt(team1, team2, reserves);
     }
 
@@ -35,8 +42,7 @@ public class CourtController {
 
     @PutMapping("/{id}/winner")
     public void updateWinner(@PathVariable int id, @RequestBody Map<String, String> request) {
-        String winner = request.get("winner");
-        //courtService.updateWinner(id, winner);
+        courtService.updateWinner(id, request == null ? null : request.get("winner"));
     }
 
     @PostMapping("/calculate")
@@ -44,4 +50,22 @@ public class CourtController {
         courtService.nextMatches();
     }
 
+    @SuppressWarnings("unchecked")
+    private static Pair teamFrom(Object raw) {
+        if (!(raw instanceof Map<?, ?> team) || !team.containsKey("player1") || !team.containsKey("player2")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Each team needs player1 and player2");
+        }
+        return new Pair((Map<String, String>) team);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Queue<String> reservesFrom(Object raw) {
+        if (raw == null) {
+            return new LinkedList<>();
+        }
+        if (!(raw instanceof List<?> names)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "reserves must be a list of names");
+        }
+        return new LinkedList<>((List<String>) names);
+    }
 }

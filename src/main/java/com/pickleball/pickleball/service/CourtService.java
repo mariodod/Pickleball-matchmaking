@@ -4,8 +4,11 @@ import com.pickleball.pickleball.model.Court;
 import com.pickleball.pickleball.model.Pair;
 import com.pickleball.pickleball.repository.CourtRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 
@@ -24,43 +27,58 @@ public class CourtService {
     }
 
     public void deleteCourt() {
-        courtRepository.delete();
-    }
-    
-    public void nextMatches() {
-        var courts = getAllCourts();
-        // prepare reserves for next matches
-        for (int i = 0; i < courts.size(); i++) {
-            Court current = courts.get(i);
-            Court prev, next;
-            if (i == 0) { // player1() court winners stay
-                next = courts.get(i+1);
-                current.getReserves().add(current.getWinners().player1());
-                current.getReserves().add(next.getWinners().player1());
-                current.getReserves().add(current.getWinners().player2());
-                current.getReserves().add(next.getWinners().player2());
-            } else if (i == courts.size() - 1) { // last court losers stay
-                prev = courts.get(i-1);
-                current.getReserves().add(current.getLosers().player1());
-                current.getReserves().add(prev.getLosers().player1());
-                current.getReserves().add(current.getLosers().player2());
-                current.getReserves().add(prev.getLosers().player2());
-            } else {
-                prev = courts.get(i-1);
-                next = courts.get(i+1);
-                current.getReserves().add(next.getWinners().player1());
-                current.getReserves().add(prev.getLosers().player1());
-                current.getReserves().add(next.getWinners().player2());
-                current.getReserves().add(prev.getLosers().player2());
-            }
-        }
-        // set teams
-        for (Court c : courts) {
-            var reserves = c.getReserves();
-            c.setTeam1(new Pair(reserves.poll(), reserves.poll()));
-            c.setTeam2(new Pair(reserves.poll(), reserves.poll()));
-            c.resetResult();
+        try {
+            courtRepository.delete();
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
         }
     }
 
+    public void updateWinner(int id, String winner) {
+        Court court = courtRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Court not found"));
+        try {
+            court.setWinner(winner);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
+    public void nextMatches() {
+        List<Court> courts = getAllCourts();
+        if (courts.isEmpty()) {
+            return;
+        }
+        if (courts.stream().anyMatch(court -> !court.hasResult())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Every court needs a winner before rotating");
+        }
+
+        List<Pair> winners = new ArrayList<>(courts.size());
+        List<Pair> losers = new ArrayList<>(courts.size());
+        for (Court court : courts) {
+            winners.add(court.getWinners());
+            losers.add(court.getLosers());
+        }
+
+        if (courts.size() == 1) {
+            assignIncoming(courts.getFirst(), winners.getFirst(), losers.getFirst());
+            return;
+        }
+
+        for (int i = 0; i < courts.size(); i++) {
+            if (i == 0) {
+                assignIncoming(courts.get(i), winners.get(i), winners.get(i + 1));
+            } else if (i == courts.size() - 1) {
+                assignIncoming(courts.get(i), losers.get(i), losers.get(i - 1));
+            } else {
+                assignIncoming(courts.get(i), winners.get(i + 1), losers.get(i - 1));
+            }
+        }
+    }
+
+    private static void assignIncoming(Court court, Pair stay, Pair incoming) {
+        court.setTeam1(new Pair(stay.player1(), incoming.player1()));
+        court.setTeam2(new Pair(stay.player2(), incoming.player2()));
+        court.resetResult();
+    }
 }
