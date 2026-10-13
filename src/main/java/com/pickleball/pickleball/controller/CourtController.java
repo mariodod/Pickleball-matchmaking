@@ -40,9 +40,24 @@ public class CourtController {
         courtService.deleteCourt();
     }
 
+    @DeleteMapping("/{id}")
+    public void deleteCourtById(@PathVariable long id) {
+        courtService.deleteCourtById(id);
+    }
+
     @PutMapping("/{id}/winner")
-    public void updateWinner(@PathVariable int id, @RequestBody Map<String, String> request) {
+    public void updateWinner(@PathVariable long id, @RequestBody Map<String, String> request) {
         courtService.updateWinner(id, request == null ? null : request.get("winner"));
+    }
+
+    @GetMapping("/round")
+    public Map<String, Integer> getRound() {
+        return Map.of("round", courtService.getCurrentRound());
+    }
+
+    @PostMapping("/reset")
+    public void resetSession() {
+        courtService.resetSession();
     }
 
     @PostMapping("/calculate")
