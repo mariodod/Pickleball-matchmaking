@@ -1,6 +1,6 @@
 package com.pickleball.pickleball.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.pickleball.pickleball.model.Court;
 import com.pickleball.pickleball.model.Pair;
 import com.pickleball.pickleball.repository.CourtRepository;
