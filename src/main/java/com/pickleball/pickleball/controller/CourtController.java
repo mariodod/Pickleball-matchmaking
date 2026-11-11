@@ -5,11 +5,18 @@ import com.pickleball.pickleball.model.Pair;
 import com.pickleball.pickleball.service.CourtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -35,11 +42,6 @@ public class CourtController {
         courtService.addCourt(team1, team2, reserves);
     }
 
-    @PostMapping("/delete")
-    public void deleteCourt() {
-        courtService.deleteCourt();
-    }
-
     @DeleteMapping("/{id}")
     public void deleteCourtById(@PathVariable long id) {
         courtService.deleteCourtById(id);
@@ -47,7 +49,11 @@ public class CourtController {
 
     @PutMapping("/{id}/winner")
     public void updateWinner(@PathVariable long id, @RequestBody Map<String, String> request) {
-        courtService.updateWinner(id, request == null ? null : request.get("winner"));
+        String winner = request.get("winner");
+        if (winner == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "winner must be team1, team2 or an empty string");
+        }
+        courtService.updateWinner(id, winner.trim());
     }
 
     @GetMapping("/round")
@@ -65,15 +71,13 @@ public class CourtController {
         courtService.nextMatches();
     }
 
-    @SuppressWarnings("unchecked")
     private static Pair teamFrom(Object raw) {
         if (!(raw instanceof Map<?, ?> team) || !team.containsKey("player1") || !team.containsKey("player2")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Each team needs player1 and player2");
         }
-        return new Pair((Map<String, String>) team);
+        return new Pair(nameFrom(team.get("player1")), nameFrom(team.get("player2")));
     }
 
-    @SuppressWarnings("unchecked")
     private static Queue<String> reservesFrom(Object raw) {
         if (raw == null) {
             return new LinkedList<>();
@@ -81,6 +85,17 @@ public class CourtController {
         if (!(raw instanceof List<?> names)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "reserves must be a list of names");
         }
-        return new LinkedList<>((List<String>) names);
+        List<String> reserves = new ArrayList<>(names.size());
+        for (Object name : names) {
+            reserves.add(nameFrom(name));
+        }
+        return new LinkedList<>(reserves);
+    }
+
+    private static String nameFrom(Object raw) {
+        if (!(raw instanceof String name) || name.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Player names must be non-empty strings");
+        }
+        return name.trim();
     }
 }

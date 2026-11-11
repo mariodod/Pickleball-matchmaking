@@ -1,10 +1,8 @@
 package com.pickleball.pickleball.model;
 
-import java.util.Map;
-
-//Only relevant thing here is being player 1 gives you priority in reserves queue
+/**
+ * A doubles team. The "player1" slot is the priority slot: during a rotation the
+ * player1 of every incoming team is queued ahead of the player2 slots.
+ */
 public record Pair(String player1, String player2) {
-    public Pair(Map<String, String> team) {
-        this(team.get("player1"), team.get("player2"));
-    }
 }

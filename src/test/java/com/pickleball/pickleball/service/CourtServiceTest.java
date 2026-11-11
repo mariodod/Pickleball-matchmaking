@@ -1,6 +1,5 @@
 package com.pickleball.pickleball.service;
 
-import tools.jackson.databind.ObjectMapper;
 import com.pickleball.pickleball.model.Court;
 import com.pickleball.pickleball.model.Pair;
 import com.pickleball.pickleball.repository.CourtRepository;
@@ -34,13 +33,15 @@ class CourtServiceTest {
     }
 
     @Test
-    void courtCanBeSerializedToJsonWithoutWinnerSet() throws Exception {
-        Court court = new Court(1L, new Pair("A1", "A2"), new Pair("B1", "B2"), new LinkedList<>());
-        ObjectMapper mapper = new ObjectMapper();
-        String json = mapper.writeValueAsString(court);
-        assertNotNull(json);
-        assertTrue(json.contains("\"id\":1"));
-        assertTrue(json.contains("\"player1\":\"A1\""));
+    void aSavedCourtExposesItsTeamsReservesAndId() {
+        addCourt("A1", "A2", "B1", "B2", "R1");
+
+        Court court = courtRepository.findAllByOrderByIdAsc().getFirst();
+
+        assertNotNull(court.getId());
+        assertEquals(new Pair("A1", "A2"), court.getTeam1());
+        assertEquals(new Pair("B1", "B2"), court.getTeam2());
+        assertEquals(List.of("R1"), List.copyOf(court.getReserves()));
     }
 
     @Test
@@ -57,11 +58,50 @@ class CourtServiceTest {
     }
 
     @Test
+    void updateWinnerWithBlankValueClearsTheResult() {
+        addCourt("A1", "A2", "B1", "B2");
+        long id = courtRepository.findAllByOrderByIdAsc().getFirst().getId();
+        courtService.updateWinner(id, "team1");
+
+        courtService.updateWinner(id, "");
+
+        Court court = courtRepository.findById(id).orElseThrow();
+        assertFalse(court.hasResult());
+    }
+
+    @Test
+    void updateWinnerRejectsAnUnknownTeam() {
+        addCourt("A1", "A2", "B1", "B2");
+        long id = courtRepository.findAllByOrderByIdAsc().getFirst().getId();
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> courtService.updateWinner(id, "team3"));
+
+        assertEquals("winner must be team1 or team2", ex.getReason());
+        assertFalse(courtRepository.findById(id).orElseThrow().hasResult());
+    }
+
+    @Test
+    void updateWinnerOnAnUnknownCourtIsRejected() {
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> courtService.updateWinner(42L, "team1"));
+
+        assertEquals("Court not found", ex.getReason());
+    }
+
+    @Test
     void nextMatchesRequiresAWinnerOnEveryCourt() {
         addCourt("A1", "A2", "B1", "B2");
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class, courtService::nextMatches);
+
         assertEquals("Every court needs a winner before rotating", ex.getReason());
+    }
+
+    @Test
+    void nextMatchesWithoutCourtsIsANoOp() {
+        courtService.nextMatches();
+
+        assertTrue(courtRepository.findAllByOrderByIdAsc().isEmpty());
+        assertEquals(1, courtService.getCurrentRound());
     }
 
     @Test
@@ -162,6 +202,26 @@ class CourtServiceTest {
 
         assertEquals(1, courtService.getCurrentRound());
         assertTrue(courtRepository.findAllByOrderByIdAsc().isEmpty());
+    }
+
+    @Test
+    void deleteCourtByIdRemovesOnlyThatCourt() {
+        addCourt("A1", "A2", "B1", "B2");
+        addCourt("C1", "C2", "D1", "D2");
+        long id = courtRepository.findAllByOrderByIdAsc().getFirst().getId();
+
+        courtService.deleteCourtById(id);
+
+        List<Court> remaining = courtRepository.findAllByOrderByIdAsc();
+        assertEquals(1, remaining.size());
+        assertEquals(new Pair("C1", "C2"), remaining.getFirst().getTeam1());
+    }
+
+    @Test
+    void deleteCourtByIdOnAnUnknownCourtIsRejected() {
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> courtService.deleteCourtById(42L));
+
+        assertEquals("Court not found", ex.getReason());
     }
 
     private void addCourt(String t1p1, String t1p2, String t2p1, String t2p2, String... reserves) {

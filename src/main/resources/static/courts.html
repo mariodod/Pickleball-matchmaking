@@ -626,8 +626,7 @@
             if (!reserves || reserves.length === 0) {
                 return '<span style="color:#94a3b8; font-style: italic;">None</span>';
             }
-            const arr = Array.isArray(reserves) ? reserves : [reserves];
-            return arr.map(name => `<span class="reserves-tag">${escapeHtml(name)}</span>`).join('');
+            return reserves.map(name => `<span class="reserves-tag">${escapeHtml(name)}</span>`).join('');
         }
 
         function escapeHtml(text) {

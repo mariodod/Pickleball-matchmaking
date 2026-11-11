@@ -2,13 +2,22 @@ package com.pickleball.pickleball.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.persistence.*;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
@@ -50,11 +59,6 @@ public class Court {
         this.reserves = reserves != null ? new ArrayList<>(reserves) : new ArrayList<>();
     }
 
-    public Court(Long id, Pair team1, Pair team2, Queue<String> reserves) {
-        this(team1, team2, reserves);
-        this.id = id;
-    }
-
     @JsonProperty("team1")
     public Pair getTeam1() {
         return new Pair(team1Player1, team1Player2);
@@ -73,15 +77,6 @@ public class Court {
     public void setTeam2(Pair pair) {
         this.team2Player1 = pair != null ? pair.player1() : null;
         this.team2Player2 = pair != null ? pair.player2() : null;
-    }
-
-    @JsonIgnore
-    public Queue<String> getReservesQueue() {
-        return new LinkedList<>(reserves);
-    }
-
-    public void setReservesFromQueue(Queue<String> queue) {
-        this.reserves = queue != null ? new ArrayList<>(queue) : new ArrayList<>();
     }
 
     public boolean hasResult() {

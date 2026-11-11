@@ -1,161 +1,211 @@
 # 🎾 Pickleball Matchmaking & Practice Rotation
 
-A lightweight, mobile-friendly web application for organizing doubles pickleball practice sessions, King of the Court ladders, and automated player rotations with waiting reserve queues.
+A small, mobile-friendly web app for running doubles pickleball practice sessions: a King of the
+Court ladder, automatic partner rotation, and a FIFO bench for waiting players.
 
-Built with **Java 21**, **Spring Boot 3.4.2**, **Spring Data JPA**, and an embedded file-backed **H2 Database**.
+Built with **Java 21**, **Spring Boot 4.1.1**, **Spring Data JPA** and an embedded file-backed
+**H2 database**. The frontend is a single static HTML page with vanilla JavaScript — no build step,
+no CDN, no Node.js.
 
 ---
 
 ## ✨ Features
 
-- **🏆 Automated King of the Court Ladder**:
-  - **Winners move up** toward Court 1.
-  - **Losers slide down** toward the bottom court.
-  - **Partners split and mix** against incoming players so people don't play with the same partner all session.
-- **⏱️ Automated Reserve Bench (FIFO Queue)**:
-  - Supports waiting players on any court.
-  - Waiting players automatically cycle into the next match in First-In-First-Out order, while resting players rotate to the reserve queue.
-- **📱 Mobile-First Court Cards**:
-  - Designed specifically for phones and tablets next to the courts.
-  - Large, thumb-friendly tap targets to record winners with a single tap.
-- **🔢 Persistent Round Tracking**:
-  - Automatically advances and displays the current round (*Round 1*, *Round 2*, etc.).
-- **💾 Local Database Persistence**:
-  - All courts, matches, and session rounds are saved to a lightweight local database file (`./data/pickleball.mv.db`), persisting seamlessly across server restarts.
-- **🔄 Session Reset**:
-  - One-click session reset with safety confirmation to start fresh practices.
+- **🏆 King of the Court ladder** — winners move up, losers move down (players waiting on the bench
+  take the court seats first).
+- **🔀 Partner splitting** — you never keep the same partner for two rounds in a row.
+- **⏱️ FIFO bench** — waiting players enter the courts in the order they arrived; players who drop
+  out of a rotation go back to the bench.
+- **📱 Mobile-first cards** — big tap targets next to the courts, one tap records the winner.
+- **🔢 Round counter** — persisted in the database, so the round survives a server restart.
+- **💾 Persistence** — courts, results and the round counter live in `./data/pickleball.mv.db`.
+- **🔄 Session reset** — clears every court and starts again at Round 1.
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- **Java 21** or later installed (e.g. OpenJDK 21, Microsoft OpenJDK 21, Temurin 21).
 
-### Running the Application
+- **Java 21** or later installed (e.g. OpenJDK 21, Temurin 21, Microsoft Build of OpenJDK 21).
+  The build compiles against the Java 21 toolchain.
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/mariodod/Pickleball-matchmaking.git
-   cd Pickleball-matchmaking
-   ```
+### Run it
 
-2. **Run the server**:
-   - On Windows (PowerShell):
-     ```powershell
-     ./gradlew bootRun
-     ```
-   - On macOS / Linux:
-     ```bash
-     ./gradlew bootRun
-     ```
+```bash
+git clone https://github.com/mariodod/Pickleball-matchmaking.git
+cd Pickleball-matchmaking
+./gradlew bootRun        # Windows: .\gradlew.bat bootRun
+```
 
-3. **Open the App**:
-   Navigate to [**http://localhost:8080/**](http://localhost:8080/) in any web browser.
+Open [http://localhost:8080/](http://localhost:8080/) — the root URL redirects to the court screen.
 
-4. **Run Automated Tests**:
-   ```bash
-   ./gradlew test
-   ```
+### Run the tests
+
+```bash
+./gradlew test
+```
+
+The test profile uses in-memory databases, so tests never touch `./data/pickleball.mv.db`.
 
 ---
 
-## 📖 How to Use the App (Step-by-Step Guide)
+## 📖 How to Use the App
 
 ```
-       [ 1. Add Courts & Players ]
-                    │
-                    ▼
-       [ 2. Play Matches & Tap Winners (🏆) ]
-                    │
-                    ▼
-       [ 3. Click "Rotate to Next Matches" ]
-                    │
-        ┌───────────┴───────────┐
-        ▼                       ▼
-  Winners Move UP          Losers Move DOWN
-  Partners Split           Partners Split
-  Reserves Enter           Resting Players Sit Out
-                    │
-                    ▼
-       [ 4. Advance to Next Round (Round 2+) ]
+   [ 1. Add courts & players ]
+              │
+              ▼
+   [ 2. Play, tap the winning team (🏆) ]
+              │
+              ▼
+   [ 3. Tap "🔄 Rotate to Next Matches" ]
+              │
+   ┌──────────┴───────────┐
+   ▼                      ▼
+ Winners move UP       Losers move DOWN
+ Partners split        Partners split
+ Bench enters          Resting players sit out
+              │
+              ▼
+   [ 4. Round counter advances ]
 ```
 
-### 1. Setting Up Courts
-1. Scroll down to the **➕ Add a New Court** form.
-2. Enter the names for:
-   - **Team 1**: Player 1 and Player 2.
-   - **Team 2**: Player 1 and Player 2.
-3. *(Optional)* If you have waiting players on this court, click **+ Add Another Reserve** and type their names.
-4. Click **Add Court to Ladder**.
-5. Repeat for as many courts as you have at your practice venue (Court 1, Court 2, Court 3...).
+### 1. Set up the courts
 
-### 2. Recording Match Results
-- Each court card displays **Team 1** vs **Team 2**.
-- Once a game is complete, **tap the card of the winning team**.
-- The winning team immediately highlights in vibrant green and displays a `🏆 WINNER` badge.
-- *(Mistake? Tap the selected team again to deselect, or tap the other team to switch).*
+1. Scroll to **➕ Add a New Court**.
+2. Enter **Team 1** (Player 1, Player 2) and **Team 2** (Player 1, Player 2).
+3. *(Optional)* Add players waiting on the bench with **+ Add Another Reserve**.
+4. Press **Add Court to Ladder**, and repeat for every court. The first court you add is the top
+   court of the ladder.
 
-### 3. Rotating to the Next Round
-- Ensure every active court has a declared winner.
-- Tap the **`🔄 Rotate to Next Matches`** button at the top.
-- The app automatically:
-  1. Increments the **Round Counter** (e.g., Round 1 ➔ Round 2).
-  2. Promotes winners to higher courts and sends losers to lower courts.
-  3. Splits former partners so they play alongside new incoming players.
-  4. Brings any waiting reserve players onto the court and rotates resting players to the bench.
-  5. Clears match results for the new round.
+### 2. Record results
 
-### 4. Managing Courts During Practice
-- **Remove a Court**: Tap the **✕ Delete** button in the header of any court card to remove it.
-- **Add a Court**: Add a new court at any time during practice.
+- Every court card shows **Team 1** vs **Team 2**.
+- Tap the winning team: it turns green and shows a **🏆 WINNER** badge.
+- Tap the same team again to clear the result, or tap the other team to switch the winner.
 
-### 5. Resetting a Practice Session
-- When practice ends or you want to start a brand-new session with a new group of players:
-- Tap **Reset Session** in the top navigation bar.
-- Confirm the browser prompt to wipe all courts and reset the round counter back to **Round 1**.
+### 3. Rotate to the next round
+
+- Every court needs a result first, otherwise the rotation is rejected with
+  *"Every court needs a winner before rotating"*.
+- Tapping **🔄 Rotate to Next Matches** promotes winners, demotes losers, splits partners, pulls the
+  bench onto the courts and increments the round counter.
+- Results are cleared so the new round starts fresh.
+
+### 4. Manage the session
+
+- **Remove a court**: tap **✕ Delete** in the court header.
+- **Add a court**: any time during the session.
+- **Reset**: **Reset Session** in the header wipes all courts and resets the round counter to 1
+  (with a confirmation prompt).
 
 ---
 
-## 🧠 Rotation Algorithm Rules
+## 🧠 Rotation Rules
 
-| Court Level | What Happens to Winners | What Happens to Losers |
+Every rotation builds a queue per court and then fills it:
+
+1. The court starts with its **bench players** (FIFO, oldest first).
+2. **Four players are appended** to that queue in the order `A.p1, B.p1, A.p2, B.p2`, where `A` and
+   `B` are the two teams that feed the court.
+3. The **first four names** of the queue play: names 1–2 are Team 1, names 3–4 are Team 2.
+4. **Everyone left in the queue sits out** and becomes the new bench.
+
+With an empty bench this yields **Team 1 = (A.p1, B.p1)** and **Team 2 = (A.p2, B.p2)**: the two
+player-1 slots play together, partners are split, and the player-2 slots play together.
+
+Who feeds which court:
+
+| Court | Team A | Team B |
 | :--- | :--- | :--- |
-| **Top Court (Court 1)** | **Stay on Court 1**, split partners, and play with winners advancing from Court 2. | **Move down** to Court 2, split partners, and play with losers from higher courts. |
-| **Middle Courts (Court $i$)** | **Move up** to Court $i-1$, split partners, and play with losers sliding down. | **Move down** to Court $i+1$, split partners, and play with winners moving up. |
-| **Bottom Court (Last Court)** | **Move up** to the court above, split partners. | **Stay on the bottom court**, split partners, and play with losers sliding down from above. |
-| **Single Court Session** | Split partners: Winner 1 plays with Loser 1 against Winner 2 and Loser 2. | If reserves are waiting, they enter first (FIFO) and excess players sit out. |
+| **Top court** | Its own winners | The winners of the court below |
+| **Middle court** | The winners of the court below (moving up) | The losers of the court above (moving down) |
+| **Bottom court** | Its own losers | The losers of the court above |
+| **Single court** | Its winners | Its losers |
+
+So, with an empty bench, winners always move up and losers always move down, and the top and
+bottom courts keep one of their own groups.
 
 ---
 
-## 🛠️ Technical Stack & Architecture
+## 📡 REST API
 
-- **Backend**: Java 21, Spring Boot 3.4.2 (`spring-boot-starter-web`, `spring-boot-starter-data-jpa`)
-- **Persistence**: File-backed **H2 Database** (`./data/pickleball.mv.db`) with Hibernate ORM.
-- **Testing**: JUnit 5, `@SpringBootTest` with isolated in-memory H2 configuration (`jdbc:h2:mem:testdb`).
-- **Frontend**: Pure semantic HTML5, responsive CSS Grid / Flexbox, and vanilla JavaScript (no Node.js, Webpack, or external CDN dependencies needed).
-- **Developer Console**: Built-in H2 Web Console available during local development at:
-  - **URL**: [http://localhost:8080/h2-console](http://localhost:8080/h2-console)
-  - **JDBC URL**: `jdbc:h2:file:./data/pickleball`
-  - **Username**: `sa`
-  - **Password**: *(leave blank)*
-
----
-
-## 📡 REST API Reference
+All endpoints live under `/courts`. Errors are returned as
+[RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem details, e.g.
+`{"status":400,"title":"Bad Request","detail":"Every court needs a winner before rotating"}`.
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/courts` | Retrieve all active courts in order |
-| `POST` | `/courts/add` | Add a new court with `team1`, `team2`, and `reserves` |
-| `DELETE` | `/courts/{id}` | Delete a specific court by its ID |
-| `POST` | `/courts/delete` | Delete the last court in the ladder |
-| `PUT` | `/courts/{id}/winner` | Update court winner (`{ "winner": "team1" }` or `"team2"` or `""`) |
-| `POST` | `/courts/calculate` | Execute rotation algorithm and increment the round |
-| `GET` | `/courts/round` | Retrieve current round counter (`{ "round": 1 }`) |
-| `POST` | `/courts/reset` | Clear all courts and reset session to Round 1 |
+| `GET` | `/courts` | All courts, in ladder order |
+| `POST` | `/courts/add` | Add a court (see body below) |
+| `DELETE` | `/courts/{id}` | Delete one court by id |
+| `PUT` | `/courts/{id}/winner` | Set the winner: `{"winner":"team1"\|"team2"\|""}` (empty clears it) |
+| `POST` | `/courts/calculate` | Run the rotation and increment the round |
+| `GET` | `/courts/round` | Current round, e.g. `{"round":1}` |
+| `POST` | `/courts/reset` | Delete all courts and reset the round to 1 |
+
+`PUT /courts/{id}/winner` takes `{"winner":"team1"}` or `{"winner":"team2"}` (case-insensitive,
+surrounding spaces are ignored) and `{"winner":""}` to clear a recorded result. A request without a
+`winner` field is rejected with `400`.
+
+Body of `POST /courts/add`:
+
+```json
+{
+  "team1": { "player1": "Alice", "player2": "Bob" },
+  "team2": { "player1": "Charlie", "player2": "David" },
+  "reserves": ["Eve", "Frank"]
+}
+```
+
+`reserves` is optional. Player names must be non-empty; the request is rejected with `400`
+otherwise.
+
+A court is returned as:
+
+```json
+{
+  "id": 1,
+  "team1": { "player1": "Alice", "player2": "Bob" },
+  "team2": { "player1": "Charlie", "player2": "David" },
+  "reserves": ["Eve"],
+  "team1Win": false,
+  "team2Win": false
+}
+```
+
+---
+
+## 🛠️ Technical Stack
+
+- **Backend**: Java 21, Spring Boot 4.1.1 (`spring-boot-starter-web`, `spring-boot-starter-data-jpa`).
+- **Persistence**: Hibernate ORM on a file-backed H2 database (`./data/pickleball.mv.db`).
+- **Frontend**: one static HTML page (`src/main/resources/static/courts.html`) with inline CSS and
+  vanilla JavaScript.
+- **Tests**: JUnit 5 with `@SpringBootTest`; the service is covered directly and the HTTP API is
+  covered against a real server on a random port.
+- **Build**: Gradle 9.8.1 wrapper.
+
+### Project layout
+
+```
+src/main/java/com/pickleball/pickleball
+├── controller/   HTTP endpoints (courts, static redirect, error handling)
+├── model/        JPA entities (Court, SessionState) and the Pair record
+├── repository/   Spring Data repositories
+└── service/      Ladder and rotation logic
+```
+
+### H2 console
+
+The H2 web console is enabled by default at
+[http://localhost:8080/h2-console](http://localhost:8080/h2-console) (reachable from localhost
+only; it is disabled in the test profile). Connect with JDBC URL
+`jdbc:h2:file:./data/pickleball;AUTO_SERVER=TRUE`, user `sa`, empty password.
 
 ---
 
 ## 📄 License
-This project is open source and available under the [MIT License](LICENSE).
+
+Released under the [MIT License](LICENSE).

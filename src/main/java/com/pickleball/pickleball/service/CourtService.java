@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
@@ -19,12 +20,14 @@ import java.util.Queue;
 @RequiredArgsConstructor
 public class CourtService {
 
+    private static final long SESSION_ID = 1L;
+
     private final CourtRepository courtRepository;
     private final SessionStateRepository sessionStateRepository;
 
     @Transactional(readOnly = true)
     public int getCurrentRound() {
-        return sessionStateRepository.findById(1L)
+        return sessionStateRepository.findById(SESSION_ID)
                 .map(SessionState::getRoundNumber)
                 .orElse(1);
     }
@@ -32,7 +35,7 @@ public class CourtService {
     @Transactional
     public void resetSession() {
         courtRepository.deleteAll();
-        sessionStateRepository.save(new SessionState(1L, 1));
+        sessionStateRepository.save(new SessionState(SESSION_ID, 1));
     }
 
     @Transactional(readOnly = true)
@@ -43,15 +46,6 @@ public class CourtService {
     @Transactional
     public void addCourt(Pair team1, Pair team2, Queue<String> reserves) {
         courtRepository.save(new Court(team1, team2, reserves));
-    }
-
-    @Transactional
-    public void deleteCourt() {
-        List<Court> courts = courtRepository.findAllByOrderByIdAsc();
-        if (courts.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No courts to delete");
-        }
-        courtRepository.delete(courts.getLast());
     }
 
     @Transactional
@@ -68,15 +62,19 @@ public class CourtService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Court not found"));
         try {
             court.setWinner(winner);
-            courtRepository.save(court);
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
         }
+        courtRepository.save(court);
     }
 
+    /**
+     * Rotates the ladder: winners move up, losers move down, partners are split and
+     * reserve players enter the courts in FIFO order. Every court must have a winner.
+     */
     @Transactional
     public void nextMatches() {
-        List<Court> courts = getAllCourts();
+        List<Court> courts = courtRepository.findAllByOrderByIdAsc();
         if (courts.isEmpty()) {
             return;
         }
@@ -86,18 +84,14 @@ public class CourtService {
 
         List<Pair> winners = new ArrayList<>(courts.size());
         List<Pair> losers = new ArrayList<>(courts.size());
+        List<Queue<String>> queues = new ArrayList<>(courts.size());
         for (Court court : courts) {
             winners.add(court.getWinners());
             losers.add(court.getLosers());
-        }
-
-        List<Queue<String>> queues = new ArrayList<>(courts.size());
-        for (Court court : courts) {
-            queues.add(court.getReservesQueue());
+            queues.add(new LinkedList<>(court.getReserves()));
         }
 
         if (courts.size() == 1) {
-            Court court = courts.getFirst();
             Pair win = winners.getFirst();
             Pair lose = losers.getFirst();
             Queue<String> queue = queues.getFirst();
@@ -107,35 +101,38 @@ public class CourtService {
             queue.add(win.player2());
             queue.add(lose.player2());
 
-            assignFromQueue(court, queue);
-            courtRepository.save(court);
+            assignFromQueue(courts.getFirst(), queue);
+            courtRepository.save(courts.getFirst());
             incrementRound();
             return;
         }
 
         for (int i = 0; i < courts.size(); i++) {
-            Queue<String> currentQueue = queues.get(i);
+            Queue<String> queue = queues.get(i);
             if (i == 0) {
-                Pair currWin = winners.get(i);
-                Pair nextWin = winners.get(i + 1);
-                currentQueue.add(currWin.player1());
-                currentQueue.add(nextWin.player1());
-                currentQueue.add(currWin.player2());
-                currentQueue.add(nextWin.player2());
+                // Top court: keeps its own winners and receives the winners of the court below.
+                Pair currentWinner = winners.get(i);
+                Pair nextWinner = winners.get(i + 1);
+                queue.add(currentWinner.player1());
+                queue.add(nextWinner.player1());
+                queue.add(currentWinner.player2());
+                queue.add(nextWinner.player2());
             } else if (i == courts.size() - 1) {
-                Pair currLose = losers.get(i);
-                Pair prevLose = losers.get(i - 1);
-                currentQueue.add(currLose.player1());
-                currentQueue.add(prevLose.player1());
-                currentQueue.add(currLose.player2());
-                currentQueue.add(prevLose.player2());
+                // Bottom court: keeps its own losers and receives the losers of the court above.
+                Pair currentLoser = losers.get(i);
+                Pair previousLoser = losers.get(i - 1);
+                queue.add(currentLoser.player1());
+                queue.add(previousLoser.player1());
+                queue.add(currentLoser.player2());
+                queue.add(previousLoser.player2());
             } else {
-                Pair nextWin = winners.get(i + 1);
-                Pair prevLose = losers.get(i - 1);
-                currentQueue.add(nextWin.player1());
-                currentQueue.add(prevLose.player1());
-                currentQueue.add(nextWin.player2());
-                currentQueue.add(prevLose.player2());
+                // Middle courts: winners move up, losers move down.
+                Pair nextWinner = winners.get(i + 1);
+                Pair previousLoser = losers.get(i - 1);
+                queue.add(nextWinner.player1());
+                queue.add(previousLoser.player1());
+                queue.add(nextWinner.player2());
+                queue.add(previousLoser.player2());
             }
         }
 
@@ -148,8 +145,8 @@ public class CourtService {
     }
 
     private void incrementRound() {
-        SessionState state = sessionStateRepository.findById(1L)
-                .orElseGet(() -> new SessionState(1L, 1));
+        SessionState state = sessionStateRepository.findById(SESSION_ID)
+                .orElseGet(() -> new SessionState(SESSION_ID, 1));
         state.setRoundNumber(state.getRoundNumber() + 1);
         sessionStateRepository.save(state);
     }
@@ -157,7 +154,7 @@ public class CourtService {
     private static void assignFromQueue(Court court, Queue<String> queue) {
         court.setTeam1(new Pair(queue.poll(), queue.poll()));
         court.setTeam2(new Pair(queue.poll(), queue.poll()));
-        court.setReservesFromQueue(queue);
+        court.setReserves(new ArrayList<>(queue));
         court.resetResult();
     }
 }
